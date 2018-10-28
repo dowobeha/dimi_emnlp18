@@ -7,13 +7,16 @@ import socket
 import time
 import zmq
 from queue import Queue
-from .PyzmqMessage import SentenceJob, CompileJob, PyzmqJob, SentenceRequest, RowRequest, get_file_signature, resource_current, ModelLocation
+from .PyzmqMessage import SentenceJob, CompileJob, PyzmqJob, SentenceRequest, RowRequest, get_file_signature, \
+    resource_current, ModelLocation
 from threading import Thread, Lock
 import sys
+
 
 class ResetSignal():
     def __init__(self):
         self.reset = True
+
 
 class VerboseLock():
     def __init__(self, name):
@@ -25,22 +28,24 @@ class VerboseLock():
         t0 = time.time()
         self._lock.acquire()
         t1 = time.time()
-        if t1-t0 > 1:
-            logging.warning("Acquiring %s lock took %d seconds" % (self.name, t1-t0))
+        if t1 - t0 > 1:
+            logging.warning("Acquiring %s lock took %d seconds" % (self.name, t1 - t0))
 
     def release(self):
         logging.debug("Releasing %s lock" % self.name)
         self._lock.release()
 
+
 class Ventilator(Thread):
-    def __init__(self, host, sync_port, sent_list):
+    def __init__(self, host, sync_port, sent_list, nonPairs):
         Thread.__init__(self)
         self.host = host
         self.sent_list = sent_list
+        self.nonPairs = nonPairs
         logging.debug("Job distributer attempting to bind to PUSH socket...")
         context = zmq.Context()
         self.socket = context.socket(zmq.REP)
-        self.port = self.socket.bind_to_random_port("tcp://"+self.host)
+        self.port = self.socket.bind_to_random_port("tcp://" + self.host)
 
         logging.debug("Ventilator successfully bound to PUSH socket.")
 
@@ -83,7 +88,7 @@ class Ventilator(Thread):
                     jobs.append(job)
                     self.job_queue.task_done()
 
-                logging.log(logging.DEBUG-1, "Ventilator pushing job %d" % job.resource.index)
+                logging.log(logging.DEBUG - 1, "Ventilator pushing job %d" % job.resource.index)
 
                 if job_request.request_size > 1:
                     self.socket.send_pyobj(jobs)
@@ -100,6 +105,7 @@ class Ventilator(Thread):
     def addJob(self, job):
         self.job_queue.put(job)
 
+
 class Sink(Thread):
     def __init__(self, host, sync_port, num_sents):
         Thread.__init__(self)
@@ -110,7 +116,7 @@ class Sink(Thread):
         context = zmq.Context()
         self.socket = context.socket(zmq.PULL)
 
-        self.port = self.socket.bind_to_random_port("tcp://"+self.host)
+        self.port = self.socket.bind_to_random_port("tcp://" + self.host)
 
         logging.debug("Parse accumulator successfully bound to PULL socket.")
 
@@ -151,7 +157,7 @@ class Sink(Thread):
                         if not parse.success:
                             # logging.info(logging.DEBUG-1, "Sink received parse %d with result: "
                             #                                "%s" % (parse.index, list(map(lambda x: x.str(), parse.state_list))))
-                        # else:
+                            # else:
                             logging.warning("Sink received parse %d with parse failure." % (
                                 parse.index))
 
@@ -160,7 +166,7 @@ class Sink(Thread):
                         logging.warning("Received a job with an unknown job type!")
                         raise Exception
                 except Exception as e:
-                    logging.error("Sink caught an exception waiting for parse: %s" % (e) )
+                    logging.error("Sink caught an exception waiting for parse: %s" % (e))
                     break
 
             logging.debug("Sink finished processing this batch of sentences")
@@ -191,6 +197,7 @@ class Sink(Thread):
         #     print('sink', i, self.outputs[i].state_list)
         return self.outputs
 
+
 class ModelDistributer(Thread):
     def __init__(self, host, sync_port, working_dir):
         Thread.__init__(self)
@@ -200,7 +207,7 @@ class ModelDistributer(Thread):
         self.quit_socket = context.socket(zmq.REQ)
 
         ## disconnect every TO ms to check for quit flag.
-        self.port = self.socket.bind_to_random_port("tcp://"+self.host)
+        self.port = self.socket.bind_to_random_port("tcp://" + self.host)
         self.quit_socket.connect("tcp://%s:%s" % (self.host, self.port))
 
         logging.debug("Model server successfully bound to REP socket")
@@ -209,12 +216,11 @@ class ModelDistributer(Thread):
         self.model_lock = VerboseLock("Model")
         self.quit = False
         self.model_loc = ModelLocation(self.host, os.path.join(self.working_dir, '/models.bin'))
-        
+
     ## All this method does is wait for requests for the model and send them,
     ## with a quick check to make sure that the model isn't currently being written
     def run(self):
 
-        
         ## Wait until we're actually given a model to start sending them out...
         while self.model_sig is None:
             time.sleep(1)
@@ -246,20 +252,22 @@ class ModelDistributer(Thread):
     def send_quit(self):
         self.quit_socket.send(b'-1')
 
+
 class WorkDistributerServer():
 
-    def __init__(self, sent_list, working_dir):
+    def __init__(self, sent_list, nonPairs, working_dir):
 
         ## Set up job distribution servers:
         self.host = get_local_ip()
         self.sent_list = sent_list
+        self.nonPairs = nonPairs
 
         context = zmq.Context()
 
         self.sync_socket = context.socket(zmq.REP)
-        sync_port = self.sync_socket.bind_to_random_port("tcp://"+self.host)
+        sync_port = self.sync_socket.bind_to_random_port("tcp://" + self.host)
 
-        self.vent = Ventilator(self.host, sync_port, sent_list)
+        self.vent = Ventilator(self.host, sync_port, sent_list, nonPairs)
         self.vent.daemon = True
         self.sink = Sink(self.host, sync_port, len(sent_list))
         self.sink.daemon = True
@@ -287,14 +295,14 @@ class WorkDistributerServer():
         # print(start, end, 'submit')
         if sent_index_list is not None:
             for i, sent in enumerate(sent_index_list):
-                self.vent.addJob(PyzmqJob(PyzmqJob.SENTENCE, SentenceJob(i, self.sent_list[sent])
-                                          ) )
+                self.vent.addJob(PyzmqJob(PyzmqJob.SENTENCE, SentenceJob(i, self.sent_list[sent], self.nonPairs[sent])
+                                          ))
             self.sink.setBatchSize(len(sent_index_list))
         elif start >= 0 and end >= 0:
             for i in range(start, end):
-                self.vent.addJob(PyzmqJob(PyzmqJob.SENTENCE, SentenceJob(i, self.sent_list[i]) ) )
+                self.vent.addJob(PyzmqJob(PyzmqJob.SENTENCE, SentenceJob(i, self.sent_list[i], self.nonPairs[i])))
 
-            self.sink.setBatchSize(end-start)
+            self.sink.setBatchSize(end - start)
 
         self.sink.setProcessing(True)
 
@@ -351,12 +359,16 @@ class WorkDistributerServer():
     def get_parses(self):
         return self.sink.get_parses()
 
+
 ## This function was required because of some funkiness on ubuntu systems where reverse dns lookup was returning a loopback ip
 ## This will try the easy way and if it returns something with 127. will make an outside connectino to known DNS (8.8.8.8) and
 ## grab the external IP from that socket.
 ## Solution from here: http://stackoverflow.com/a/1267524
 def get_local_ip():
     try:
-        return [l for l in ([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.0.1")][:1], [[(s.connect(('8.8.8.8', 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) if l][0][0]
+        return [l for l in (
+        [ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.0.1")][:1], [
+            [(s.connect(('8.8.8.8', 53)), s.getsockname()[0], s.close()) for s in
+             [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) if l][0][0]
     except:
         return "127.0.0.1"

@@ -9,27 +9,41 @@ import sys, linecache
 import gzip
 
 ## This method reads a "tagwords" file which is space-delimited, and each
-## token is formatted as POS/token.
-def read_input_file(filename):
+## token is formatted as POS/token. Constituents known a priori are delimited as start_constit [tokens] end_constit
+def read_input_file(filename, start_constit = "<constit>", end_constit = "</constit>"):
     pos_seqs = list()
     token_seqs = list()
+    constit_seqs = list()
+
     f = open(filename, 'r', encoding='utf-8')
     for line in f:
         pos_seq = list()
         token_seq = list()
-        for token in line.split():
-            if "/" in token:
-                (pos, token) = token.split("/")
-            else:
-                pos = 0
+        constit_seq = list()
 
-            pos_seq.append(int(pos))
-            token_seq.append(int(token))
+        incomplete_constits = list() #stack for keeping track of starting indices of (possibly nested) constituents
+
+        index = 0
+        for token in line.split():
+            if token == start_constit:
+                incomplete_constits.append(index)
+            elif token == end_constit and len(incomplete_constits) > 0: #should be > 0 anyway but in case of bad input
+                start_index = incomplete_constits.pop()
+                constit_seq.append((start_index, index - 1))
+            else:
+                if "/" in token:
+                    (pos, token) = token.split("/")
+                else:
+                    pos = 0
+                pos_seq.append(int(pos))
+                token_seq.append(int(token))
+                index = index + 1
 
         pos_seqs.append(pos_seq)
         token_seqs.append(token_seq)
+        constit_seqs.append(constit_seq)
 
-    return (pos_seqs, token_seqs)
+    return (pos_seqs, token_seqs, constit_seqs)
 
 def read_word_vector_file(filename, word_dict):
     f = open(filename, 'r', encoding='utf-8')

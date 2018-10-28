@@ -118,6 +118,7 @@ class PyzmqWorker:
 
         longest_time = 10
         sent_batch = []
+        non_pairs_batch = []
 
         while True:
             logging.log(logging.DEBUG-1, "Worker %d waiting for job" % self.tid)
@@ -140,12 +141,17 @@ class PyzmqWorker:
                     for job in jobs:
                         sentence_job = job.resource
                         sent = sentence_job.ev_seq
+                        non_pairs = sentence_job.non_pairs
+
                         sent_batch.append(sent)
+                        non_pairs_batch.append(non_pairs)
                 else:
                     sentence_job = job.resource
                     sent_index = sentence_job.index
                     sent = sentence_job.ev_seq
+                    non_pairs = sentence_job.non_pairs
                     sent_batch.append(sent)
+                    non_pairs_batch.append(non_pairs)
                     # print(sent_index, sent)
 
             elif job.type == PyzmqJob.QUIT:
@@ -184,11 +190,11 @@ class PyzmqWorker:
                     try:
                         if tries > 0:
                             logging.info("Error in previous sampling attempt. Retrying batch")
-                        for sent in sent_batch:
+                        for index, sent in enumerate(sent_batch):
                             # NLTK tree, large negative float (logprob of string given grammar; marginal prob of sentence), counter object (like a dictionary of counts) of production rules (how many times was each rule used in this sampled tree), a tuple of number of times a left-child is expanded vs number of times a right-child is expanded
                             sampled_tree, log_prob, this_productions_counters, lr_branches = \
                                 self.cky_sampler.inside_sample(
-                                sent)
+                                sent, non_pairs_batch[index])
                             # print(sampled_tree, log_prob)
                             sent_samples.append(sampled_tree)
                             log_probs.append(log_prob)
@@ -234,6 +240,7 @@ class PyzmqWorker:
                     results_socket.send_pyobj(CompletedJob(PyzmqJob.SENTENCE, parse, parse.success))
 
                 sent_batch = []
+                non_pairs_batch = []
 
             if self.quit:
                 break

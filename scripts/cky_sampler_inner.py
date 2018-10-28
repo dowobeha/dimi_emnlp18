@@ -131,7 +131,7 @@ class CKY_sampler:
             self.stream_generator = self._stream_gen()
 
 
-    def inside_sample(self, sent):
+    def inside_sample(self, sent, nonPairs = []):
         # print(sent)
         # there is a bug where the sampler is first loaded onto a worker, the vector views are
         # not linked to the original vectors, which causes the first sentence to underflow. it is
@@ -147,7 +147,7 @@ class CKY_sampler:
             try:
                 if self.gpu:
                     self.cublas.scal(0., self.decr_chart_flat)
-                self.compute_inside(sent)
+                self.compute_inside(sent, nonPairs)
 
                 # for i in range(0, len(sent)+1):
                 #     for j in range(0, len(sent)+1):
@@ -220,7 +220,7 @@ class CKY_sampler:
         return this_tree, logprob, production_counter_dict, lr_branches
 
     # @profile
-    def compute_inside(self, sent): #sparse
+    def compute_inside(self, sent, nonPairs): #sparse
         self.this_sent_len = len(sent)
         sent_len = self.this_sent_len
         if self.gpu:
@@ -303,6 +303,8 @@ class CKY_sampler:
                     y = self.G.dot(dot_temp_vector)
 
                     self.chart[i, j] = y
+                    if (i, j - 1) in nonPairs:  # nonPairs indexed differently than i, j here
+                        y.fill(0)
 
     # @profile
     def sample_tree(self, sent):

@@ -22,9 +22,10 @@ class SentenceRequest(JobRequest):
         self.request_size = request_size
 
 class SentenceJob:
-    def __init__(self, index, ev_seq):
+    def __init__(self, index, ev_seq, non_pairs):
         self.index = index
         self.ev_seq = ev_seq
+        self.non_pairs = non_pairs
 
 class RowRequest(JobRequest):
     def __init__(self, resource_sig):

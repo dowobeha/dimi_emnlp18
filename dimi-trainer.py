@@ -79,7 +79,11 @@ def main(argv):
     dict_file = config.get('io', 'dict_file')
 
     ## Read in input file to get sequence for X
-    (pos_seq, word_seq) = io.read_input_file(input_file)
+    (pos_seq, word_seq, constit_seq) = io.read_input_file(input_file)
+    nonPairsSeq = []
+    for sent_index, sentenceConstit in enumerate(constit_seq):
+        nonPairsSeq.append(nonConstituents(sentenceConstit, len(word_seq[sent_index])))
+    print(nonPairsSeq)
 
     params = read_params(config)
     params['output_dir'] = out_dir
@@ -100,7 +104,7 @@ def main(argv):
         #sys.stderr.write("This functionality is at alpha stage and disabled in master.\n")
         #sys.exit(-1)
         word_vecs = io.read_word_vector_file(params.get('word_vecs_file'), io.read_dict_file(dict_file))
-    dimi.wrapped_sample_beam(word_seq, params, working_dir, gold_seqs=gold_seq,
+    dimi.wrapped_sample_beam(word_seq, nonPairsSeq, params, working_dir, gold_seqs=gold_seq,
                              word_vecs=word_vecs,
                              word_dict_file = dict_file, resume=resume)
 
@@ -113,6 +117,34 @@ def read_params(config):
         params[key] = val
 
     return params
+#Generates list of known invalid constituent start/end index tuples
+def nonConstituents(startEndPairs, length):
+    nonConstituentIndices = []
+    for startEnd in startEndPairs:
+        start = startEnd[0]
+        end = startEnd[1]
+
+        #check input validity
+        if start > end:
+            raise ValueError("Start index must be less than end index: " + start + " , " + end)
+        if start < 0 or end < 0:
+            raise ValueError("Invalid start/end indices: " + start + ", " + end)
+
+        constituentIndices = range(startEnd[0], startEnd[1]+1)
+
+        for cIndex in constituentIndices:
+            if cIndex < end:
+                #If cIndex<end, then a pair <i, cIndex> would split up the constituent if i<start
+                for i in range (0, start):
+                    if nonConstituentIndices.count((i, cIndex)) == 0: #duplicate happens if tuple forbidden by a previous constituent
+                        nonConstituentIndices.append((i, cIndex))
+            if cIndex > start:
+                #If cIndex> start, then a pair <cIndex, i> would split up the constituent if i>end
+                for i in range (end+1, length):
+                    if nonConstituentIndices.count((cIndex, i)) == 0:
+                        nonConstituentIndices.append((cIndex, i))
+    return nonConstituentIndices
+
 
 
 if __name__ == "__main__":

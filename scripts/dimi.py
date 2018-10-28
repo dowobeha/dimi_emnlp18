@@ -39,7 +39,7 @@ def wrapped_sample_beam(*args, **kwargs):
 # Arg 1: ev_seqs : a list of lists of integers, representing
 # the EVidence SEQuenceS seen by the user (e.g., words in a sentence
 # mapped to ints).
-def sample_beam(ev_seqs, params, working_dir, gold_seqs=None,
+def sample_beam(ev_seqs, nonPairs, params, working_dir, gold_seqs=None,
                 word_dict_file=None, word_vecs=None, resume=False):
     global K
     K = int(params.get('k'))
@@ -177,7 +177,7 @@ def sample_beam(ev_seqs, params, working_dir, gold_seqs=None,
         hid_seqs = [None] * num_sents
 
         cur_iter = pcfg_model.iter
-    workDistributer = WorkDistributerServer(ev_seqs, working_dir)
+    workDistributer = WorkDistributerServer(ev_seqs, nonPairs, working_dir)
     logging.info("GPU is %s with %d workers and batch size %d" % (gpu, num_gpu_workers, batch_per_worker))
     logging.info("Start a new worker with python3 scripts/workers.py %s %d %d %d %d %d %d" % (
     workDistributer.host, workDistributer.jobs_port, workDistributer.results_port, workDistributer.models_port,
