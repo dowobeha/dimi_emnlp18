@@ -277,7 +277,11 @@ class CKY_sampler:
                         #kron sum
                             np.outer(self.chart[i,k], self.chart[k,j], out=kron_temp_vector_2d_view)
                             dot_temp_vector += kron_temp_vector
-
+                            if(i == 2 and j == 12):
+                                print("Dot temp vector", dot_temp_vector)
+                            if(i == 2 and j == 12 and k == 3):
+                                print("Outer product", self.chart[i,k], self.chart[k,j])
+                                print("Kron ", kron_temp_vector_2d_view, kron_temp_vector)
                 if self.gpu:
 
                     y = self.chart[i, j]
@@ -301,11 +305,30 @@ class CKY_sampler:
 
                 else:
                     y = self.G.dot(dot_temp_vector)
-
+                    if(i == 2 and j == 12):
+                         print("G", self.G)
+                         print("Dot temp vector", dot_temp_vector)
+                         print("Y after G.dot dot temp vector",y)
                     self.chart[i, j] = y
+                    if(i == 0 and j== len(sent)-1):
+                        print(y)
+                        print(nonPairs)
+                        for i1 in range(0, len(sent)):
+                            for j1 in range(i1+1, len(sent)):
+                               # print(i1,j1)
+                               # print(self.chart[i1,j1])
+                                print(i1, j1, len( [True for ln in self.chart[i1, j1] if ln != 0.0]))
+                                
                     if (i, j - 1) in nonPairs:  # nonPairs indexed differently than i, j here
                         y.fill(0)
-
+                        if(i == 0 and j == len(sent)):
+                            print("Top node zeroed out")
+                    # print(i, j, len( [True for ln in y if ln != 0.0]))                 
+                  #  for row in y:
+                       # for cell in row:
+                        #    if(cell != 0):
+                        #        print(i,j)
+                        #        break;
     # @profile
     def sample_tree(self, sent):
         expanding_nodes = []

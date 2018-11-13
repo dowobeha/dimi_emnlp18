@@ -36,6 +36,6 @@ with open(fn, encoding='utf8') as of, open(ints_fn, 'w', encoding='utf8') as int
                 else:
                     word_dict[word] = len(word_dict)
                     int_sent.append(word_dict[word])
-        print(' '.join([str(x) for x in int_sent]), file=intsf)
+        print(' '.join([str(x) for x in int_sent]),file=intsf)
     for word in word_dict:
-        print(word, word_dict[word], file=dicf)
+        print(word, word_dict[word],file=dicf)

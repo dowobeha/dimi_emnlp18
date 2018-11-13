@@ -44,8 +44,10 @@ def sample_beam(ev_seqs, nonPairs, params, working_dir, gold_seqs=None,
     global K
     K = int(params.get('k'))
     sent_lens = list(map(len, ev_seqs))
-
+    
+    
     max_len = max(map(len, ev_seqs))
+    #print(max_len)
     # vocab_size = max(map(max, ev_seqs)) # vocab_size, which is the max index of the word indices
 
     f = open(word_dict_file, 'r', encoding='utf-8')

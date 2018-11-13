@@ -83,7 +83,7 @@ def main(argv):
     nonPairsSeq = []
     for sent_index, sentenceConstit in enumerate(constit_seq):
         nonPairsSeq.append(nonConstituents(sentenceConstit, len(word_seq[sent_index])))
-    print(nonPairsSeq)
+    
 
     params = read_params(config)
     params['output_dir'] = out_dir
